@@ -1,0 +1,152 @@
+package provide mdb 1.0
+
+namespace eval mdb {
+  variable db "" ;
+  variable dbpath "" ;
+  variable mode "memory"; # one of "disk/memory"
+}
+
+proc mdb::keylist {keypath {symbol "/"}} {
+  set keys [split [regsub -all "${symbol}+" $keypath "$symbol"] $symbol] ;
+  if {[llength [lindex $keys 0]]==0} {
+    set keys [lrange $keys 1 end]
+  }
+  if {[llength [lindex $keys end]]==0} {
+    set keys [lrange $keys 0 end-1]
+  }
+  return $keys ;
+}
+ 
+# unset db value
+proc mdb::unsetdb {} {
+  variable db ;
+  variable mode ;
+  set db ""
+  if {[regexp {disk} $mode]} {
+    savedb ; 
+  }
+}
+ 
+# set db path/mode
+proc mdb::dbpath {fpath} {
+  variable dbpath ;
+  variable mode ;
+  set dbpath [mFullPath $fpath -nomsg -force];
+  # set mode disk ;
+}
+proc mdb::dbmode {name} {
+  variable mode ;
+  if {[regexp {disk|memory} $name]} {
+    set mode $name
+  } else {
+    set mode memory ;
+  }
+}
+ 
+# get value based on keypath
+proc mdb::getval {{keypath ""}} {
+  variable db ;
+  variable mode ;
+  if {[regexp {disk} $mode]} {
+    loaddb ;
+  }
+  if {[llength $keypath]==0} {
+    return [dict get $db]
+  }
+  return [_get $db $keypath]
+}
+ 
+# set value based on keypath
+proc mdb::setval {keypath value} {
+  variable db ;
+  variable mode ;
+  if {[regexp {disk} $mode]} {
+    loaddb
+  }
+  set db [_set $db $keypath $value]
+  if {[regexp {disk} $mode]} {
+    savedb ;
+  }
+}
+ 
+# get keys of sub dict
+proc mdb::getkey {{keypath ""}} {
+  variable db ;
+  variable mode ;
+  if {[llength $keypath]==0} {
+    if {[regexp {disk} $mode]} {
+      loaddb ; 
+    }
+    return [dict keys $db]
+  }
+  return [dict keys [_get $db $keypath]]
+}
+ 
+# load db from disk
+proc mdb::loaddb {} {
+  variable db ;
+  variable dbpath ;
+  if {![file exists $dbpath]} {
+    mPuts "db Load fail, file $dbpath is not found."
+    set db "" ;
+    return ;
+  }
+  set fh [open $dbpath r] ;
+  set db [read $fh]
+  close $fh ;
+}
+ 
+# save db to disk
+proc mdb::savedb {} {
+  variable db ;
+  variable dbpath ;
+  if {[file exists $dbpath]} {
+    mPuts "File $dbpath exits, will overwrite." ;
+  }
+  set fh [open $dbpath w] ;
+  puts $fh $db ;
+  close $fh ;
+} 
+ 
+# core get/set function
+proc mdb::_get {dictvar keypath} {
+  set keys [keylist $keypath] ;
+  if {[llength $keys]>1} {
+    set cmdstr [subst {_get [list [dict get $dictvar [lindex $keys 0]]] [join [lrange $keys 1 end] "/"]}] ;
+  # puts $cmdstr ;
+    eval $cmdstr ;
+  } else {
+    return [dict get $dictvar $keys]
+  }
+}
+proc mdb::_set {dictvar keypath value} {
+  # variable test
+  set keys [keylist $keypath] ;
+  # incr test ;
+  if {[dict exists $dictvar [lindex $keys 0]]} {
+    set left [dict remove $dictvar [lindex $keys 0]]
+  } else {
+  # mPuts "No key found $keypath, use create instead of set." ;
+    set len [llength $keys] ;
+    set new [list [lindex $keys end] $value] ;
+    for {set i 1} {$i<$len} {incr i} {
+      set new [list [lindex $keys end-$i] $new]
+    }
+    return [concat $dictvar $new];
+  }
+  if {[llength $keys]>1} {
+    if {[llength $value]>1} {
+      set value [list $value]  
+    }
+    set cmdstr [subst {_set [list [dict get $dictvar [lindex $keys 0]]] [join [lrange $keys 1 end] "/"] $value}] ;
+    set right [list [lindex $keys 0] [eval $cmdstr]]
+  # set test [expr $test -1]
+  } else {
+    return [list $keys $value]
+  }
+  set cmdstr [subst {dict create [concat $left $right]}]
+  return [eval $cmdstr] ;
+}
+
+# vim: ft=tcl
+
