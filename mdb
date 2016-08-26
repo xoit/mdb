@@ -45,6 +45,15 @@ proc mdb::dbmode {name} {
   }
 }
  
+# db get & set
+proc mdb::data {{key ""} {value ""}} {
+  if {[llength $value]==0} {
+    getval $key ;
+  } else {
+    setval $key $value ;
+  }
+} 
+
 # get value based on keypath
 proc mdb::getval {{keypath ""}} {
   variable db ;
@@ -123,6 +132,9 @@ proc mdb::savedb {{fpath ""}} {
 proc mdb::_get {dictvar keypath} {
   variable symbol ;
   set keys [keylist $keypath] ;
+  if {![dict exists $dictvar [lindex $keys 0]]} {
+    return "" ;
+  }
   if {[llength $keys]>1} {
     set cmdstr [subst {_get [list [dict get $dictvar [lindex $keys 0]]] [join [lrange $keys 1 end] $symbol]}] ;
   # puts $cmdstr ;
@@ -132,10 +144,10 @@ proc mdb::_get {dictvar keypath} {
   }
 }
 proc mdb::_set {dictvar keypath value} {
-  # variable test
+  variable test
   variable symbol ;
   set keys [keylist $keypath] ;
-  # incr test ;
+   incr test ;
   if {[dict exists $dictvar [lindex $keys 0]]} {
     set left [dict remove $dictvar [lindex $keys 0]]
   } else {
@@ -147,16 +159,19 @@ proc mdb::_set {dictvar keypath value} {
     }
     return [concat $dictvar $new];
   }
+  #mPuts "$test: (left) <[lindex $keys 0]>: $left" ;
   if {[llength $keys]>1} {
     if {[llength $value]>1} {
       set value [list $value]  
     }
     set cmdstr [subst {_set [list [dict get $dictvar [lindex $keys 0]]] [join [lrange $keys 1 end] $symbol] $value}] ;
     set right [list [lindex $keys 0] [eval $cmdstr]]
-  # set test [expr $test -1]
+    set test [expr $test -1]
   } else {
-    return [list $keys $value]
+  # return [list $keys $value]
+    set right [list $keys $value]
   }
+  #mPuts "$test: (right) <[lindex $keys 0]>: $right" ;
   set cmdstr [subst {dict create [concat $left $right]}]
   return [eval $cmdstr] ;
 }
