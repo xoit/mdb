@@ -83,27 +83,33 @@ proc mdb::getkey {{keypath ""}} {
 }
  
 # load db from disk
-proc mdb::loaddb {} {
+proc mdb::loaddb {{fpath ""}} {
   variable db ;
   variable dbpath ;
-  if {![file exists $dbpath]} {
+  if {[llength $fpath]==0} {
+    set fpath $dbpath ;
+  }
+  if {![file exists $fpath]} {
     mPuts "db Load fail, file $dbpath is not found."
     set db "" ;
     return ;
   }
-  set fh [open $dbpath r] ;
+  set fh [open $fpath r] ;
   set db [read $fh]
   close $fh ;
 }
  
 # save db to disk
-proc mdb::savedb {} {
+proc mdb::savedb {{fpath ""}} {
   variable db ;
   variable dbpath ;
-  if {[file exists $dbpath]} {
-    mPuts "File $dbpath exits, will overwrite." ;
+  if {[llength $fpath]==0} {
+    set fpath $dbpath ;
   }
-  set fh [open $dbpath w] ;
+  if {[file exists $fpath]} {
+    mPuts "File $fpath exits, will overwrite." ;
+  }
+  set fh [open $fpath w] ;
   puts $fh $db ;
   close $fh ;
 } 
