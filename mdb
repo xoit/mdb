@@ -3,10 +3,12 @@ package provide mdb 1.0
 namespace eval mdb {
   variable db "" ;
   variable dbpath "" ;
-  variable mode "memory"; # one of "disk/memory"
+  variable mode "memory"; # disk|memory
+  variable symbol "/" ;
 }
 
-proc mdb::keylist {keypath {symbol "/"}} {
+proc mdb::keylist {keypath} {
+  variable symbol ;
   set keys [split [regsub -all "${symbol}+" $keypath "$symbol"] $symbol] ;
   if {[llength [lindex $keys 0]]==0} {
     set keys [lrange $keys 1 end]
@@ -27,7 +29,7 @@ proc mdb::unsetdb {} {
   }
 }
  
-# set db path/mode
+# set db path & mode
 proc mdb::dbpath {fpath} {
   variable dbpath ;
   variable mode ;
@@ -62,6 +64,9 @@ proc mdb::setval {keypath value} {
   variable mode ;
   if {[regexp {disk} $mode]} {
     loaddb
+  }
+  if {[llength $value]>1} {
+    set value [list $value]
   }
   set db [_set $db $keypath $value]
   if {[regexp {disk} $mode]} {
@@ -114,11 +119,12 @@ proc mdb::savedb {{fpath ""}} {
   close $fh ;
 } 
  
-# core get/set function
+# core get,set function
 proc mdb::_get {dictvar keypath} {
+  variable symbol ;
   set keys [keylist $keypath] ;
   if {[llength $keys]>1} {
-    set cmdstr [subst {_get [list [dict get $dictvar [lindex $keys 0]]] [join [lrange $keys 1 end] "/"]}] ;
+    set cmdstr [subst {_get [list [dict get $dictvar [lindex $keys 0]]] [join [lrange $keys 1 end] $symbol]}] ;
   # puts $cmdstr ;
     eval $cmdstr ;
   } else {
@@ -127,6 +133,7 @@ proc mdb::_get {dictvar keypath} {
 }
 proc mdb::_set {dictvar keypath value} {
   # variable test
+  variable symbol ;
   set keys [keylist $keypath] ;
   # incr test ;
   if {[dict exists $dictvar [lindex $keys 0]]} {
@@ -144,7 +151,7 @@ proc mdb::_set {dictvar keypath value} {
     if {[llength $value]>1} {
       set value [list $value]  
     }
-    set cmdstr [subst {_set [list [dict get $dictvar [lindex $keys 0]]] [join [lrange $keys 1 end] "/"] $value}] ;
+    set cmdstr [subst {_set [list [dict get $dictvar [lindex $keys 0]]] [join [lrange $keys 1 end] $symbol] $value}] ;
     set right [list [lindex $keys 0] [eval $cmdstr]]
   # set test [expr $test -1]
   } else {
